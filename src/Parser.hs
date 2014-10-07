@@ -1,6 +1,8 @@
 module Parser(
   parseComputation,
-  matrixAdd, matrixData, assign) where
+  matrixAdd, matrixData, matrixMultiply,
+  matrixTranspose,
+  assign) where
 
 import Text.ParserCombinators.Parsec.Char
 import Text.Parsec.Expr
@@ -21,6 +23,8 @@ data MatrixOperationParseTree
     deriving (Eq, Ord, Show)
 
 matrixAdd = MatrixBinop "+"
+matrixMultiply = MatrixBinop "*"
+matrixTranspose = MatrixUnop "'"
 matrixData = MatrixData
 
 parseComputation :: String -> LAComputation
@@ -30,7 +34,9 @@ parseComputation text = case parse pLAComputation "Computation Parser" text of
 
 pLAComputation = do
   updated <- pDataObject
+  spaces
   string "<-"
+  spaces
   newVal <- pExpr
   return $ Assign updated newVal
 
@@ -59,12 +65,16 @@ unaryOp opName = do
 pTerm = pMatrixData
 
 pMatrixData = do
+  spaces
   obj <- pDataObject
+  spaces
   return $ matrixData obj
 
 pParens e = do
   char '('
+  spaces
   res <- e
+  spaces
   char ')'
   return e
 
