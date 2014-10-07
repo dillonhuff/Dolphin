@@ -1,7 +1,8 @@
 module Parser(
   parseComputation,
   matrixAdd, matrixData, matrixMultiply,
-  matrixTranspose,
+  matrixSubtract, scalarMultiply,
+  matrixTranspose, matrixNegate,
   assign) where
 
 import Text.ParserCombinators.Parsec.Char
@@ -26,8 +27,11 @@ data MatrixOperationParseTree
 
 matrixData = MatrixData
 matrixAdd = MatrixBinop "+"
+matrixSubtract = MatrixBinop "-"
+scalarMultiply = MatrixBinop ".*"
 matrixMultiply = MatrixBinop "*"
 matrixTranspose = MatrixUnop "'"
+matrixNegate = MatrixUnop "-"
 
 parseComputation :: String -> LAComputation
 parseComputation text = case parse pLAComputation "Computation Parser" toks of
