@@ -5,7 +5,9 @@ module Parser(
   assign) where
 
 import Text.ParserCombinators.Parsec.Char
+import Text.ParserCombinators.Parsec.Combinator
 import Text.Parsec.Expr
+import Text.Parsec.Pos
 import Text.Parsec.Prim
 
 import DataObject
@@ -22,23 +24,23 @@ data MatrixOperationParseTree
   | MatrixData DataObject
     deriving (Eq, Ord, Show)
 
+matrixData = MatrixData
 matrixAdd = MatrixBinop "+"
 matrixMultiply = MatrixBinop "*"
 matrixTranspose = MatrixUnop "'"
-matrixData = MatrixData
 
 parseComputation :: String -> LAComputation
-parseComputation text = case parse pLAComputation "Computation Parser" text of
+parseComputation text = case parse pLAComputation "Computation Parser" toks of
   Left err -> error $ show err
-  Right c -> c
+  Right res -> res
+  where
+    toks = lexComputation text
 
 pLAComputation = do
-  updated <- pDataObject
-  spaces
-  string "<-"
-  spaces
-  newVal <- pExpr
-  return $ Assign updated newVal
+  updated <- dataObjTok
+  assignTok
+  res <- pExpr
+  return $ Assign (getData updated) res
 
 pExpr = buildExpressionParser table pTerm
 
@@ -55,36 +57,115 @@ matrixMultiplication = Infix (binaryOp "*") AssocLeft
 scalarMultiplication = Infix (binaryOp ".*") AssocLeft
 
 binaryOp opName = do
-  string opName
+  dolphinOp opName
   return $ MatrixBinop opName
 
 unaryOp opName = do
-  string opName
+  dolphinOp opName
   return $ MatrixUnop opName
   
-pTerm = pMatrixData
+pTerm = pParens pExpr
+        <|> pMatrixData
 
+pMatrixData :: (Monad m) => ParsecT [Token] u m MatrixOperationParseTree
 pMatrixData = do
-  spaces
-  obj <- pDataObject
-  spaces
-  return $ matrixData obj
+  obj <- dataObjTok
+  return $ MatrixData $ getData obj
 
 pParens e = do
-  char '('
-  spaces
+  lParenTok
   res <- e
-  spaces
-  char ')'
-  return e
+  rParenTok
+  return res
 
-pDataObject = pMatrix <|> pVectorOrScalar
+dataObjTok :: (Monad m) => ParsecT [Token] u m Token
+dataObjTok = dolphinTok isDataObj
+  where
+    isDataObj x = case x of
+      (DataTok n _) -> True
+      _ -> False
+
+lParenTok :: (Monad m) => ParsecT [Token] u m Token
+lParenTok = dolphinTok isLParen
+
+rParenTok :: (Monad m) => ParsecT [Token] u m Token
+rParenTok = dolphinTok isRParen
+
+dolphinOp :: (Monad m) => String -> ParsecT [Token] u m Token
+dolphinOp name = dolphinTok (\t -> isOpTok t && getOpName t == name)
+
+assignTok :: (Monad m) => ParsecT [Token] u m Token
+assignTok = dolphinTok isAssign
+
+dolphinTok :: (Monad m) => (Token -> Bool) -> ParsecT [Token] u m Token
+dolphinTok condition = tokenPrim show updatePos meetsCond
+  where
+    meetsCond t = if condition t then Just t else Nothing
+
+updatePos :: SourcePos -> Token -> [Token] -> SourcePos
+updatePos _ _ (pt:_) = pos pt
+updatePos position _ [] = position
+
+-- Lexer
+data Token
+  = DataTok DataObject SourcePos
+  | AsgTok SourcePos
+  | OpTok String SourcePos
+  | DelimTok String SourcePos
+    deriving (Eq, Ord, Show)
+
+getData (DataTok d _) = d
+getOpName (OpTok n _) = n
+
+isAssign (AsgTok _) = True
+isAssign _ = False
+
+isOpTok (OpTok _ _) = True
+isOpTok _ = False
+
+isLParen (DelimTok "(" _) = True
+isLParen _ = False
+
+isRParen (DelimTok ")" _) = True
+isRParen _ = False
+
+pos :: Token -> SourcePos
+pos (DataTok _ p) = p
+pos (AsgTok p) = p
+pos (OpTok _ p) = p
+pos (DelimTok _ p) = p
+
+lexComputation :: String -> [Token]
+lexComputation text = case parse (sepBy dolphinToken spaces) "Lexer" text of
+  Left err -> error $ show err
+  Right dolphinTokens -> dolphinTokens
+
+dolphinToken = pDataObject <|> pAsg <|> pOperation <|> pDelimiter
+
+pDataObject = do
+  pos <- getPosition
+  obj <- pMatrix <|> pVectorOrScalar
+  return $ DataTok obj pos
+
+pAsg = do
+  pos <- getPosition
+  string "<-"
+  return $ AsgTok pos
+
+pOperation = do
+  pos <- getPosition
+  op <- string "*"
+        <|> string ".*"
+        <|> string "+"
+        <|> string "-"
+        <|> string "'"
+  return $ OpTok op pos
 
 pMatrix = do
   first <- upper
   rest <- many alphaNum
   return $ matrix (first:rest)
-  
+
 pVectorOrScalar = do
   orientation <- oneOf "rcs"
   char '_'
@@ -94,3 +175,8 @@ pVectorOrScalar = do
     's' -> return $ scalar (first:rest)
     'r' -> return $ rowVector (first:rest)
     'c' -> return $ colVector (first:rest)
+
+pDelimiter = do
+  pos <- getPosition
+  delimiter <- string "(" <|> string ")"
+  return $ DelimTok delimiter pos
