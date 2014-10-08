@@ -3,7 +3,7 @@ module Parser(
   matrixAdd, matrixData, matrixMultiply,
   matrixSubtract, scalarMultiply,
   matrixTranspose, matrixNegate,
-  assign) where
+  assign, toLinearMatrixCode) where
 
 import Text.ParserCombinators.Parsec.Char
 import Text.ParserCombinators.Parsec.Combinator
@@ -12,6 +12,33 @@ import Text.Parsec.Pos
 import Text.Parsec.Prim
 
 import DataObject
+import LinearMatrixCode
+
+toLinearMatrixCode :: LAComputation -> [LinearMatrixCode]
+toLinearMatrixCode (Assign res (MatrixData obj)) = [linUnop "copy" res obj]
+toLinearMatrixCode (Assign res expr) = exprCode ++ [linUnop "copy" res result]
+  where
+    (exprCode, result) = linearizeMatrixOperationTree expr "#0"
+
+linearizeMatrixOperationTree :: MatrixOperationParseTree ->
+                                String ->
+                                ([LinearMatrixCode], Result)
+linearizeMatrixOperationTree (MatrixBinop name left right) suffix =
+  (leftCode ++ rightCode ++ [linBinop name resultTmp leftRes rightRes], resultTmp)
+  where
+    resName = newTemp suffix
+    (leftCode, leftRes) = linearizeMatrixOperationTree left (suffix ++ "1")
+    (rightCode, rightRes) = linearizeMatrixOperationTree right (suffix ++ "2")
+    resultTmp = resDataObjectBinop resName name leftRes rightRes
+linearizeMatrixOperationTree (MatrixUnop name operand) suffix =
+  (operandCode ++ [linUnop name resultTmp operandRes], resultTmp)
+  where
+    resName = newTemp suffix
+    (operandCode, operandRes) = linearizeMatrixOperationTree operand (suffix ++ "0")
+    resultTmp = resDataObjectUnop resName name operandRes
+linearizeMatrixOperationTree (MatrixData obj) suffix = ([], obj)
+
+newTemp suffix = "T" ++ suffix
 
 data LAComputation
   = Assign DataObject MatrixOperationParseTree
