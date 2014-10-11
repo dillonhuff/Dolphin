@@ -24,14 +24,14 @@ linearizeMatrixOperationTree :: MatrixOperationParseTree ->
                                 String ->
                                 ([LinearMatrixCode], Result)
 linearizeMatrixOperationTree (MatrixBinop name left right) suffix =
-  (leftCode ++ rightCode ++ [linBinop name resultTmp leftRes rightRes], resultTmp)
+  (leftCode ++ rightCode ++ [allocateMatrix resultTmp, linBinop name resultTmp leftRes rightRes], resultTmp)
   where
     resName = newTemp suffix
     (leftCode, leftRes) = linearizeMatrixOperationTree left (suffix ++ "1")
     (rightCode, rightRes) = linearizeMatrixOperationTree right (suffix ++ "2")
     resultTmp = resDataObjectBinop resName name leftRes rightRes
 linearizeMatrixOperationTree (MatrixUnop name operand) suffix =
-  (operandCode ++ [linUnop name resultTmp operandRes], resultTmp)
+  (operandCode ++ [allocateMatrix resultTmp, linUnop name resultTmp operandRes], resultTmp)
   where
     resName = newTemp suffix
     (operandCode, operandRes) = linearizeMatrixOperationTree operand (suffix ++ "0")
