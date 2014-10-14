@@ -19,8 +19,8 @@ parseCases =
 linMatCodeCases =
   [("r_y <- r_z", [linUnop "copy" (rowVector "y") (rowVector "z")]),
    ("A <- B * C",
-    let tmp = dataObject "T#0" (symbolicDim "B_num_rows") (symbolicDim "C_num_cols") in
+    let tmp = dataObject "T_0" (symbolicDim "B_num_rows") (symbolicDim "C_num_cols") in
     [allocateMatrix tmp, linBinop "*" tmp (matrix "B") (matrix "C"), linUnop "copy" (matrix "A") tmp]),
    ("A <- C'",
-    let tmp = dataObject "T#0" (symbolicDim "C_num_cols") (symbolicDim "C_num_rows") in
+    let tmp = dataObject "T_0" (symbolicDim "C_num_cols") (symbolicDim "C_num_rows") in
     [allocateMatrix tmp, linUnop "'" tmp (matrix "C"), linUnop "copy" (matrix "A") tmp])]

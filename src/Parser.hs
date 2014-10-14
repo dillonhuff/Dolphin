@@ -18,7 +18,7 @@ toLinearMatrixCode :: LAComputation -> [LinearMatrixCode]
 toLinearMatrixCode (Assign res (MatrixData obj)) = [linUnop "copy" res obj]
 toLinearMatrixCode (Assign res expr) = exprCode ++ [linUnop "copy" res result]
   where
-    (exprCode, result) = linearizeMatrixOperationTree expr "#0"
+    (exprCode, result) = linearizeMatrixOperationTree expr "_0"
 
 linearizeMatrixOperationTree :: MatrixOperationParseTree ->
                                 String ->

@@ -4,6 +4,8 @@ module DataObject(
   resDataObjectUnop, resDataObjectBinop,
   dataName, mDim, nDim, matrix,
   scalar, rowVector, colVector,
+  mDimName, nDimName,
+  rowStride, colStride,
   symbolicDim,) where
 
 type Name = String
@@ -15,6 +17,10 @@ data DataObject = DataObject {
   } deriving (Eq, Ord, Show)
 
 dataObject = DataObject
+mDimName (DataObject name _ _) = name ++ "_mDim"
+nDimName (DataObject name _ _) = name ++ "_nDim"
+rowStride (DataObject name _ _) = name ++ "_row_stride"
+colStride (DataObject name _ _) = name ++ "_col_stride"
 
 data Dimension
   = One
