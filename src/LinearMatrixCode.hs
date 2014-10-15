@@ -4,6 +4,9 @@ module LinearMatrixCode(
   result, allocateMatrix,
   toImperativeCode) where
 
+import Data.List as L
+import Data.Set as S
+
 import DataObject
 import ImperativeCode
 
@@ -20,17 +23,37 @@ data LinearMatrixCode
 result (MatBinop _ r _ _) = r
 result (MatUnop _ r _) = r
 
+dataObjects :: LinearMatrixCode -> Set DataObject
+dataObjects (MatBinop _ res l r) = S.fromList [res, l , r]
+dataObjects (MatUnop _ res op) = S.fromList [res, op]
+dataObjects _ = S.empty
+
 allocateMatrix = AllocateMatrix
 linBinop = MatBinop
 linUnop = MatUnop
 
 toImperativeCode :: [LinearMatrixCode] -> ImperativeProgram
-toImperativeCode code = map toImperativeStatement preprocessedCode
+toImperativeCode code = L.map toImperativeStatement preprocessedCode
   where
     preprocessedCode = addDeallocates code
 
 addDeallocates :: [LinearMatrixCode] -> [LinearMatrixCode]
-addDeallocates c = c
+addDeallocates code = reverse $ addDeallocs allTemps $ reverse code
+  where
+    allAllocs = L.filter isAlloc code
+    allTemps = S.fromList $ L.map (\ (AllocateMatrix obj) -> obj) allAllocs
+
+addDeallocs :: Set DataObject -> [LinearMatrixCode] -> [LinearMatrixCode]
+addDeallocs _ [] = []
+addDeallocs notFreedYet (st:sts) = toFree ++ (st : (addDeallocs stillUnFreed sts))
+  where
+    lastUseInSt = S.intersection notFreedYet (dataObjects st)
+    toFree = S.toList $ S.map FreeMatrix lastUseInSt
+    stillUnFreed = S.difference notFreedYet lastUseInSt
+
+isAlloc :: LinearMatrixCode -> Bool
+isAlloc (AllocateMatrix m) = True
+isAlloc _ = False
 
 toImperativeStatement :: LinearMatrixCode -> Statement
 toImperativeStatement (AllocateMatrix m) = allocateMemory m

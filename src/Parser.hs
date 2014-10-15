@@ -167,7 +167,7 @@ pos (OpTok _ p) = p
 pos (DelimTok _ p) = p
 
 lexComputation :: String -> [Token]
-lexComputation text = case parse (sepBy dolphinToken spaces) "Lexer" text of
+lexComputation text = case parse (endBy dolphinToken spaces) "Lexer" text of
   Left err -> error $ show err
   Right dolphinTokens -> dolphinTokens
 
